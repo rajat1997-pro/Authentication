@@ -3,7 +3,8 @@ require(newLocal_1).config()
 const express = require("express")
 const app = express()
 const ejs = require("ejs")
-const md5 = require("md5")
+const bcrypt = require("bcrypt")
+const saltRounds = 10
 const newLocal = "mongoose"
 const mongoose = require(newLocal)
 
@@ -31,16 +32,25 @@ app.get("/login", (req, res) => {
 
 app.post("/login", (req, res) => {
     const userName = req.body.username
-    const password = md5(req.body.password)
+    const password = req.body.password
     async function main() {
         const user = await User.findOne({ email: userName })
         if (user) {
-            if (user.password === password) {
-                res.render("secrets")
-            }
-            else {
-                res.send("<h1>Password is incorrect!!</h1>")
-            }
+            bcrypt.compare(password, user.password, (err, result) => {
+                if (err) {
+                    console.log(err.message)
+                }
+                else {
+                    if (result === true) {
+                        res.render("secrets")
+                    }
+                    else {
+                        res.send("<h1>Password is incorrect!!</h1>")
+                    }
+                }
+
+            })
+
         }
         else {
             res.send("<h1>User does'nt exists!!</h1>")
@@ -55,16 +65,25 @@ app.get("/register", (req, res) => {
 })
 
 app.post("/register", (req, res) => {
-    const username = req.body.username
-    const password = md5(req.body.password)
-    async function main() {
-        const user = await User.create({ email: username, password: password })
-        console.log(user)
-        res.render("secrets")
-    }
-    main().catch(err => {
-        console.log(err.message)
+    bcrypt.hash(req.body.password, saltRounds, (err, hash) => {
+        if (err) {
+            console.log(err.message)
+        }
+        else {
+            const username = req.body.username
+            const password = hash
+            async function main() {
+                const user = await User.create({ email: username, password: password })
+                console.log(user)
+                res.render("secrets")
+            }
+            main().catch(err => {
+                console.log(err.message)
+            })
+
+        }
     })
+
 
 })
 
