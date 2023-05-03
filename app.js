@@ -3,6 +3,7 @@ require(newLocal_1).config()
 const express = require("express")
 const app = express()
 const ejs = require("ejs")
+const md5 = require("md5")
 const newLocal = "mongoose"
 const mongoose = require(newLocal)
 
@@ -30,7 +31,7 @@ app.get("/login", (req, res) => {
 
 app.post("/login", (req, res) => {
     const userName = req.body.username
-    const password = req.body.password
+    const password = md5(req.body.password)
     async function main() {
         const user = await User.findOne({ email: userName })
         if (user) {
@@ -55,7 +56,7 @@ app.get("/register", (req, res) => {
 
 app.post("/register", (req, res) => {
     const username = req.body.username
-    const password = req.body.password
+    const password = md5(req.body.password)
     async function main() {
         const user = await User.create({ email: username, password: password })
         console.log(user)
