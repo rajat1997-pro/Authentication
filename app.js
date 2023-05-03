@@ -7,8 +7,10 @@ const newLocal = "mongoose"
 const mongoose = require(newLocal)
 const session = require("express-session")
 const passport = require("passport")
-
+const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const User = require("./users")
+
+
 app.use(express.urlencoded({ extended: true }))
 app.use(express.static("public"))
 
@@ -32,12 +34,52 @@ main().catch(err => {
     console.log(err.message)
 })
 passport.use(User.createStrategy())
-passport.serializeUser(User.serializeUser())
-passport.deserializeUser(User.deserializeUser())
+
+passport.serializeUser(function (user, done) {
+    done(null, user);
+});
+
+passport.deserializeUser(function (user, done) {
+    done(null, user);
+});
+
+passport.use(new GoogleStrategy({
+    clientID: process.env.CLIENT_ID,
+    clientSecret: process.env.CLIENT_SECRET,
+    callbackURL: "http://localhost:3000/auth/google/secrets"
+},
+    function (accessToken, refreshToken, profile, cb) {
+        console.log(profile)
+        User.findOrCreate({ googleId: profile.id }, function (err, user) {
+            return cb(err, user);
+        });
+    }
+));
+
 
 app.get("/", (req, res) => {
     res.render("home")
 })
+
+app.route('/auth/google')
+
+    .get(passport.authenticate('google', {
+
+        scope: ['profile']
+
+    }));
+
+app.route("/auth/google/secrets").get(passport.authenticate("google", { failureRedirect: "/login" }),
+    (req, res) => {
+        res.redirect("/secrets")
+    })
+// app.get('/auth/google/secrets',
+//     passport.authenticate('google', { failureRedirect: '/login' }),
+//     function (req, res) {
+//         // Successful authentication, redirect home.
+//         res.redirect('/');
+//     });
+
 app.get("/login", (req, res) => {
     res.render("login")
 })
@@ -62,12 +104,40 @@ app.get("/register", (req, res) => {
     res.render("register")
 })
 app.get("/secrets", (req, res) => {
+    async function main() {
+        const user = await User.find({ "secret": { $ne: null } })
+        if (users) {
+            res.render("secrets", { userWithSecrets: users })
+        }
+        else {
+            console.log("Error Occured")
+        }
+    }
+
+})
+
+app.get("/submit", (req, res) => {
     if (req.isAuthenticated()) {
-        res.render("secrets");
+        res.render("submit");
     }
     else {
         res.redirect("/login")
     }
+})
+
+app.post("/submit", (req, res) => {
+    const secret = req.body.secret
+    async function main() {
+        const user = await User.findById(req.user._id)
+        if (user) {
+            user.secret = secret
+            user.save()
+            res.redirect("/secrets")
+        }
+    }
+    main().catch(err => {
+        console.log(err.message)
+    })
 })
 app.post("/register", (req, res) => {
     User.register({ username: req.body.username }, req.body.password, (err, user) => {
